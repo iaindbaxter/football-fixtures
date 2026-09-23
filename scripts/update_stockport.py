@@ -7,18 +7,19 @@ URL = "https://www.espn.co.uk/football/team/fixtures/_/id/357"
 
 def fetch():
     r = requests.get(URL, timeout=10, headers={"User-Agent": "Mozilla/5.0"})
-    soup = BeautifulSoup(r.text, "html.parser")
+    soup = BeautifulSoup(r.text, "lxml")
 
     events = []
 
-    # ESPN uses multiple tables, one per month
-    tables = soup.find_all("table")
+    # ESPN fixtures are inside <section> blocks
+    sections = soup.find_all("section", class_="Card")
 
-    for table in tables:
-        rows = table.find_all("tr")
+    for section in sections:
+        # Each fixture row is a <div> with role="row"
+        rows = section.find_all("div", role="row")
 
         for row in rows:
-            cols = row.find_all("td")
+            cols = row.find_all("div", role="cell")
             if len(cols) < 4:
                 continue
 
