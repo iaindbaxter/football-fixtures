@@ -1,34 +1,48 @@
-name: Update Stockport Fixtures
+import requests
+import json
+from bs4 import BeautifulSoup
+from datetime import datetime
 
-permissions:
-  contents: write
-  
-on:
-  schedule:
-    - cron: "0 5 * * *"
-  workflow_dispatch:
+URL = "https://www.espn.co.uk/football/team/fixtures/_/id/357"
 
-jobs:
-  update:
-    runs-on: ubuntu-latest
+def fetch():
+    r = requests.get(URL, timeout=10, headers={"User-Agent": "Mozilla/5.0"})
+    soup = BeautifulSoup(r.text, "html.parser")
 
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+    events = []
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
+    # ESPN uses multiple tables, one per month
+    tables = soup.find_all("table")
 
-      - run: python -m pip install requests
-      - run: python -m pip install beautifulsoup4
+    for table in tables:
+        rows = table.find_all("tr")
 
-      - run: python scripts/update_stockport.py
+        for row in rows:
+            cols = row.find_all("td")
+            if len(cols) < 4:
+                continue
 
-      - run: |
-          git config --global user.name "github-actions"
-          git config --global user.email "actions@github.com"
-          git add stockport.json
-          git commit -m "Auto-update Stockport fixtures" || echo "No changes"
-          git push
+            date_text = cols[0].get_text(strip=True)
+            match_text = cols[1].get_text(strip=True)
+            time_text = cols[2].get_text(strip=True)
+            comp_text = cols[3].get_text(strip=True)
+
+            # Convert date
+            try:
+                dt = datetime.strptime(date_text, "%a, %d %b %Y")
+                iso_date = dt.isoformat() + "Z"
+            except:
+                continue
+
+            events.append({
+                "date": iso_date,
+                "match": match_text,
+                "time": time_text,
+                "competition": comp_text
+            })
+
+    with open("stockport.json", "w") as f:
+        json.dump({"events": events}, f, indent=2)
+
+if __name__ == "__main__":
+    fetch()
