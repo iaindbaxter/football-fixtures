@@ -2,8 +2,7 @@ import requests
 import json
 from datetime import datetime
 
-# ESPN League One – Stockport County (team ID 357)
-URL = "https://site.api.espn.com/apis/site/v2/sports/soccer/eng.3/teams/357/schedule"
+URL = "https://www.football-data.org/v4/teams/357/matches?status=SCHEDULED"
 
 def fetch():
     r = requests.get(URL, timeout=10)
@@ -11,47 +10,19 @@ def fetch():
 
     events = []
 
-    for e in data.get("events", []):
-        try:
-            comp = e["competitions"][0]
-            venue = comp.get("venue", {})
-            address = venue.get("address", {})
+    for m in data.get("matches", []):
+        events.append({
+            "id": m.get("id"),
+            "utcDate": m.get("utcDate"),
+            "status": m.get("status"),
+            "matchday": m.get("matchday"),
+            "homeTeam": m.get("homeTeam", {}).get("name"),
+            "awayTeam": m.get("awayTeam", {}).get("name"),
+            "competition": m.get("competition", {}).get("name"),
+            "venue": m.get("venue", None),
+        })
 
-            events.append({
-                "id": e.get("id"),
-                "date": e.get("date"),
-                "name": e.get("name"),
-                "shortName": e.get("shortName"),
-                "competition": comp.get("name"),
-                "venue": {
-                    "fullName": venue.get("fullName", ""),
-                    "city": address.get("city", ""),
-                    "country": address.get("country", "")
-                },
-                "competitors": [
-                    {
-                        "id": c.get("id"),
-                        "homeAway": c.get("homeAway"),
-                        "displayName": c.get("displayName"),
-                        "abbreviation": c.get("abbreviation"),
-                        "logo": c.get("logo")
-                    }
-                    for c in comp.get("competitors", [])
-                ],
-                "links": {
-                    "summary": e["links"][0]["href"] if e.get("links") else ""
-                }
-            })
-        except Exception:
-            continue
-
-    def sort_key(ev):
-        try:
-            return datetime.fromisoformat(ev["date"].replace("Z", "+00:00"))
-        except:
-            return datetime.max
-
-    events.sort(key=sort_key)
+    events.sort(key=lambda x: datetime.fromisoformat(x["utcDate"].replace("Z", "+00:00")))
 
     with open("stockport.json", "w") as f:
         json.dump({"events": events}, f, indent=2)
