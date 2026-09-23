@@ -1,43 +1,34 @@
-import requests
-import json
-from bs4 import BeautifulSoup
-from datetime import datetime
+name: Update Stockport Fixtures
 
-TEAM_URL = "https://www.espn.co.uk/football/team/fixtures/_/id/357"  # Stockport County
+permissions:
+  contents: write
+  
+on:
+  schedule:
+    - cron: "0 5 * * *"
+  workflow_dispatch:
 
-def fetch():
-    r = requests.get(TEAM_URL, timeout=10)
-    soup = BeautifulSoup(r.text, "html.parser")
+jobs:
+  update:
+    runs-on: ubuntu-latest
 
-    events = []
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-    # ESPN fixture rows
-    rows = soup.select("table tbody tr")
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
-    for row in rows:
-        cols = row.find_all("td")
-        if len(cols) < 3:
-            continue
+      - run: python -m pip install requests
+      - run: python -m pip install beautifulsoup4
 
-        date_text = cols[0].get_text(strip=True)
-        opponent = cols[1].get_text(strip=True)
-        comp = cols[2].get_text(strip=True)
+      - run: python scripts/update_stockport.py
 
-        # Convert date
-        try:
-            dt = datetime.strptime(date_text, "%a, %d %b %Y")
-            iso_date = dt.isoformat() + "Z"
-        except:
-            continue
-
-        events.append({
-            "date": iso_date,
-            "opponent": opponent,
-            "competition": comp,
-        })
-
-    with open("stockport.json", "w") as f:
-        json.dump({"events": events}, f, indent=2)
-
-if __name__ == "__main__":
-    fetch()
+      - run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "actions@github.com"
+          git add stockport.json
+          git commit -m "Auto-update Stockport fixtures" || echo "No changes"
+          git push
