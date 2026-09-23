@@ -1,32 +1,40 @@
 import requests
 import json
+from bs4 import BeautifulSoup
 from datetime import datetime
 
-URL = "https://www.scorebat.com/api/competition/england-league-one/"
+TEAM_URL = "https://www.espn.co.uk/football/team/fixtures/_/id/357"  # Stockport County
 
 def fetch():
-    r = requests.get(URL, timeout=10)
-    data = r.json()
+    r = requests.get(TEAM_URL, timeout=10)
+    soup = BeautifulSoup(r.text, "html.parser")
 
     events = []
 
-    for match in data.get("matches", []):
-        # Only include Stockport County fixtures
-        if "Stockport" not in (match.get("home_team", "") + match.get("away_team", "")):
+    # ESPN fixture rows
+    rows = soup.select("table tbody tr")
+
+    for row in rows:
+        cols = row.find_all("td")
+        if len(cols) < 3:
+            continue
+
+        date_text = cols[0].get_text(strip=True)
+        opponent = cols[1].get_text(strip=True)
+        comp = cols[2].get_text(strip=True)
+
+        # Convert date
+        try:
+            dt = datetime.strptime(date_text, "%a, %d %b %Y")
+            iso_date = dt.isoformat() + "Z"
+        except:
             continue
 
         events.append({
-            "id": match.get("id"),
-            "date": match.get("date"),
-            "homeTeam": match.get("home_team"),
-            "awayTeam": match.get("away_team"),
-            "competition": "League One",
-            "venue": match.get("venue", ""),
-            "status": match.get("status", "")
+            "date": iso_date,
+            "opponent": opponent,
+            "competition": comp,
         })
-
-    # Sort by date
-    events.sort(key=lambda x: datetime.fromisoformat(x["date"].replace("Z", "+00:00")))
 
     with open("stockport.json", "w") as f:
         json.dump({"events": events}, f, indent=2)
