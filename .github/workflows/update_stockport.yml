@@ -26,6 +26,7 @@ jobs:
       - run: |
           git config --global user.name "github-actions"
           git config --global user.email "actions@github.com"
-          git add stockport.json
+          git add workflows/stockport.json
           git commit -m "Auto-update Stockport fixtures" || echo "No changes"
           git push
+
