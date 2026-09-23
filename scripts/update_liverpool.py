@@ -1,9 +1,8 @@
 import requests
 import json
 from datetime import datetime
-import pytz
 
-# ESPN endpoint (UK edition)
+# ESPN Premier League – Liverpool (team ID 364)
 URL = "https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/teams/364/schedule"
 
 def fetch():
@@ -14,45 +13,38 @@ def fetch():
 
     for e in data.get("events", []):
         try:
+            comp = e["competitions"][0]
+            venue = comp.get("venue", {})
+            address = venue.get("address", {})
+
             events.append({
                 "id": e.get("id"),
                 "date": e.get("date"),
                 "name": e.get("name"),
                 "shortName": e.get("shortName"),
-                "competition": e["competitions"][0]["name"],
+                "competition": comp.get("name"),
                 "venue": {
-                    "fullName": e["competitions"][0]["venue"]["fullName"],
-                    "city": e["competitions"][0]["venue"].get("address", {}).get("city", ""),
-                    "country": e["competitions"][0]["venue"].get("address", {}).get("country", "")
+                    "fullName": venue.get("fullName", ""),
+                    "city": address.get("city", ""),
+                    "country": address.get("country", "")
                 },
                 "competitors": [
                     {
-                        "id": c["id"],
-                        "homeAway": c["homeAway"],
-                        "displayName": c["displayName"],
-                        "abbreviation": c["abbreviation"],
-                        "logo": c["logo"]
+                        "id": c.get("id"),
+                        "homeAway": c.get("homeAway"),
+                        "displayName": c.get("displayName"),
+                        "abbreviation": c.get("abbreviation"),
+                        "logo": c.get("logo")
                     }
-                    for c in e["competitions"][0]["competitors"]
+                    for c in comp.get("competitors", [])
                 ],
                 "links": {
                     "summary": e["links"][0]["href"] if e.get("links") else ""
                 }
             })
         except Exception:
-            # fallback for friendlies / incomplete metadata
-            events.append({
-                "id": f"friendly-{len(events)}",
-                "date": "TBD",
-                "name": e.get("name", "Friendly"),
-                "shortName": e.get("shortName", "FRI"),
-                "competition": "Friendly",
-                "venue": {"fullName": "TBD"},
-                "competitors": [],
-                "links": {"summary": ""}
-            })
+            continue
 
-    # Sort by date (TBD stays at bottom)
     def sort_key(ev):
         try:
             return datetime.fromisoformat(ev["date"].replace("Z", "+00:00"))
