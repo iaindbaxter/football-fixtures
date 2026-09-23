@@ -3,7 +3,7 @@ import json
 from bs4 import BeautifulSoup
 from datetime import datetime
 
-URL = "https://www.espn.co.uk/football/team/fixtures/_/id/357"
+URL = "https://www.bbc.co.uk/sport/football/teams/stockport-county/scores-fixtures"
 
 def fetch():
     r = requests.get(URL, timeout=10, headers={"User-Agent": "Mozilla/5.0"})
@@ -11,36 +11,32 @@ def fetch():
 
     events = []
 
-    # ESPN fixtures are inside <section> blocks
-    sections = soup.find_all("section", class_="Card")
+    # BBC fixtures are inside <li class="gs-o-list-ui__item gs-u-pb++">
+    fixtures = soup.find_all("li", class_="gs-o-list-ui__item gs-u-pb++")
 
-    for section in sections:
-        # Each fixture row is a <div> with role="row"
-        rows = section.find_all("div", role="row")
+    for f in fixtures:
+        date_el = f.find("time")
+        if not date_el:
+            continue
 
-        for row in rows:
-            cols = row.find_all("div", role="cell")
-            if len(cols) < 4:
-                continue
+        date_iso = date_el.get("datetime")
 
-            date_text = cols[0].get_text(strip=True)
-            match_text = cols[1].get_text(strip=True)
-            time_text = cols[2].get_text(strip=True)
-            comp_text = cols[3].get_text(strip=True)
+        teams = f.find_all("span", class_="sp-c-fixture__team-name")
+        if len(teams) != 2:
+            continue
 
-            # Convert date
-            try:
-                dt = datetime.strptime(date_text, "%a, %d %b %Y")
-                iso_date = dt.isoformat() + "Z"
-            except:
-                continue
+        home = teams[0].get_text(strip=True)
+        away = teams[1].get_text(strip=True)
 
-            events.append({
-                "date": iso_date,
-                "match": match_text,
-                "time": time_text,
-                "competition": comp_text
-            })
+        comp_el = f.find("span", class_="sp-c-fixture__competition")
+        competition = comp_el.get_text(strip=True) if comp_el else ""
+
+        events.append({
+            "date": date_iso,
+            "homeTeam": home,
+            "awayTeam": away,
+            "competition": competition
+        })
 
     with open("stockport.json", "w") as f:
         json.dump({"events": events}, f, indent=2)
