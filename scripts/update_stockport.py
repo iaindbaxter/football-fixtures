@@ -2,7 +2,7 @@ import requests
 import json
 from datetime import datetime
 
-URL = "https://www.football-data.org/v4/teams/357/matches?status=SCHEDULED"
+URL = "https://www.scorebat.com/api/competition/england-league-one/"
 
 def fetch():
     r = requests.get(URL, timeout=10)
@@ -10,19 +10,23 @@ def fetch():
 
     events = []
 
-    for m in data.get("matches", []):
+    for match in data.get("matches", []):
+        # Only include Stockport County fixtures
+        if "Stockport" not in (match.get("home_team", "") + match.get("away_team", "")):
+            continue
+
         events.append({
-            "id": m.get("id"),
-            "utcDate": m.get("utcDate"),
-            "status": m.get("status"),
-            "matchday": m.get("matchday"),
-            "homeTeam": m.get("homeTeam", {}).get("name"),
-            "awayTeam": m.get("awayTeam", {}).get("name"),
-            "competition": m.get("competition", {}).get("name"),
-            "venue": m.get("venue", None),
+            "id": match.get("id"),
+            "date": match.get("date"),
+            "homeTeam": match.get("home_team"),
+            "awayTeam": match.get("away_team"),
+            "competition": "League One",
+            "venue": match.get("venue", ""),
+            "status": match.get("status", "")
         })
 
-    events.sort(key=lambda x: datetime.fromisoformat(x["utcDate"].replace("Z", "+00:00")))
+    # Sort by date
+    events.sort(key=lambda x: datetime.fromisoformat(x["date"].replace("Z", "+00:00")))
 
     with open("stockport.json", "w") as f:
         json.dump({"events": events}, f, indent=2)
